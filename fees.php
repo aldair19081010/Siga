@@ -21,7 +21,14 @@
 	<div class="col-lg-12">
 		<div class="row mb-4 mt-4">
 			<div class="col-md-12">
-
+				<!-- Botón para subir Excel de pagos -->
+				<button class="btn btn-success float-right ml-2" id="upload_payment_excel">
+					<i class="fa fa-upload"></i> Subir Pagos Excel
+				</button>
+				<!-- Botón para descargar formato -->
+				<a href="download_payment_format.php" class="btn btn-info float-right">
+					<i class="fa fa-download"></i> Descargar Formato
+				</a>
 			</div>
 		</div>
 		<div class="row">
@@ -42,7 +49,6 @@
 								<tr>
 									<th class="text-center">#</th>
 									<th class="">ID No.</th>
-									<th class="">No. Boleta</th>
 									<th class="">Nombre</th>
 									<th class="">Tarifa</th>
 									<th class="">Pago</th>
@@ -52,7 +58,7 @@
 							</thead>
 							<tbody>
 								<?php
-								$i = 1;
+								$i = 1; // Inicializar contador para numeración
 								$fees = $conn->query("SELECT ef.*,s.name as sname,s.id_no FROM student_ef_list ef inner join student s on s.id = ef.student_id order by s.name asc ");
 								while ($row = $fees->fetch_assoc()) :
 									$paid = $conn->query("SELECT sum(amount) as paid FROM payments where ef_id=" . $row['id']);
@@ -60,12 +66,9 @@
 									$balance = $row['total_fee'] - $paid;
 								?>
 									<tr>
-										<td class="text-center"><?php echo $i++ ?></td>
+										<td class="text-center"><?php echo $i++ ?></td> <!-- Mostrar numeración -->
 										<td>
 											<p> <?php echo $row['id_no'] ?></p>
-										</td>
-										<td>
-											<p> <?php echo $row['ef_no'] ?></p>
 										</td>
 										<td>
 											<p> <?php echo ucwords($row['sname']) ?></p>
@@ -114,42 +117,60 @@
 
 <script>
 	$(document).ready(function() {
-		$('table').dataTable()
-	})
+		$('table').dataTable();
+	});
 
 	$('.view_payment').click(function() {
-		uni_modal("Información de Pagos", "view_payment.php?ef_id=" + $(this).attr('data-id') + "&pid=0", "mid-large")
+		uni_modal("Información de Pagos", "view_payment.php?ef_id=" + $(this).attr('data-id') + "&pid=0", "mid-large");
+	});
 
-	})
 	$('#new_fees').click(function() {
-		uni_modal("Inscribir estudiante ", "manage_fee.php", "mid-large")
+		uni_modal("Inscribir estudiante", "manage_fee.php", "mid-large");
+	});
 
-	})
+	$('#upload_payment_excel').click(function() {
+		uni_modal("Subir Archivo Excel de Pagos", "upload_payment_excel.php", "mid-large");
+	});
+
 	$('.edit_fees').click(function() {
-		uni_modal("Administrar los detalles de inscripción del estudiante", "manage_fee.php?id=" + $(this).attr('data-id'), "mid-large")
+		uni_modal("Editar detalles de inscripción", "manage_fee.php?id=" + $(this).attr('data-id'), "mid-large");
+	});
 
-	})
 	$('.delete_fees').click(function() {
-		_conf("¿Deseas eliminar estas tarifas?", "delete_fees", [$(this).attr('data-id')])
-	})
+		_conf("¿Deseas eliminar estas tarifas?", "delete_fees", [$(this).attr('data-id')]);
+	});
 
 	function delete_fees($id) {
-		start_load()
+		start_load();
 		$.ajax({
 			url: 'ajax.php?action=delete_fees',
 			method: 'POST',
-			data: {
-				id: $id
-			},
+			data: { id: $id },
 			success: function(resp) {
-				if (resp == 1) {
-					alert_toast("Datos eliminados exitósamente", 'success')
-					setTimeout(function() {
-						location.reload()
-					}, 1500)
-
+				try {
+					if (typeof resp === 'string') {
+						resp = JSON.parse(resp); // Asegurarse de que la respuesta sea JSON válida
+					}
+					if (resp.status == 1) {
+						alert_toast("Datos eliminados exitosamente", 'success');
+						setTimeout(function() {
+							location.reload(); // Recargar la página después de eliminar
+						}, 500);
+					} else {
+						alert_toast(resp.message, 'danger');
+						end_load();
+					}
+				} catch (err) {
+					console.error("Error al procesar la respuesta del servidor:", err);
+					alert_toast("Error inesperado. Intente nuevamente más tarde.", 'danger');
+					end_load();
 				}
+			},
+			error: function(err) {
+				console.error("Error en la solicitud AJAX:", err);
+				alert_toast("Error en el servidor. Intente nuevamente más tarde.", 'danger');
+				end_load();
 			}
-		})
+		});
 	}
 </script>

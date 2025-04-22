@@ -15,19 +15,33 @@ Class Action {
 	    ob_end_flush();
 	}
 
-	function login(){
-		extract($_POST);		
-		$qry = $this->db->query("SELECT * FROM users where username = '".$username."' and password = '".$password."' ");
-		if($qry->num_rows > 0){
-			foreach ($qry->fetch_array() as $key => $value) {
-				if($key != 'password' && !is_numeric($key))
-					$_SESSION['login_'.$key] = $value;
+	function login() {
+		extract($_POST);
+
+		// Validar que los campos no estén vacíos
+		if (empty($username) || empty($password)) {
+			return json_encode(['status' => 0, 'message' => 'Por favor, complete todos los campos.']);
+		}
+
+		// Escapar los valores para evitar inyección SQL
+		$username = $this->db->real_escape_string($username);
+		$password = md5($this->db->real_escape_string($password)); // Hashear la contraseña con MD5
+
+		$qry = $this->db->query("SELECT * FROM users WHERE username = '$username' AND password = '$password'");
+		if ($qry && $qry->num_rows > 0) {
+			$row = $qry->fetch_array();
+			foreach ($row as $key => $value) {
+				if ($key != 'password' && !is_numeric($key)) {
+					$_SESSION['login_' . $key] = $value;
+				}
 			}
-				return 1;
-		}else{
-			return 3;
+			$_SESSION['login_id'] = $row['id']; // Asegúrate de establecer `login_id`
+			return json_encode(['status' => 1, 'message' => 'Inicio de sesión exitoso.']);
+		} else {
+			return json_encode(['status' => 0, 'message' => 'Credenciales incorrectas.']);
 		}
 	}
+
 	function login2(){
 		
 		extract($_POST);		
@@ -57,30 +71,31 @@ Class Action {
 		header("location:../index.php");
 	}
 
-	function save_user(){
-		extract($_POST);
-		$data = " name = '$name' ";
-		$data .= ", username = '$username' ";
-		if(!empty($password))
-		$data .= ", password = '".md5($password)."' ";
-		$data .= ", type = '$type' ";
-		if($type == 1)
-			$establishment_id = 0;
-		$data .= ", establishment_id = '$establishment_id' ";
-		$chk = $this->db->query("Select * from users where username = '$username' and id !='$id' ")->num_rows;
-		if($chk > 0){
-			return 2;
-			exit;
-		}
-		if(empty($id)){
-			$save = $this->db->query("INSERT INTO users set ".$data);
-		}else{
-			$save = $this->db->query("UPDATE users set ".$data." where id = ".$id);
-		}
-		if($save){
-			return 1;
-		}
+	function save_user() {
+	    extract($_POST);
+	    $data = " name = '$name', username = '$username' ";
+	    if (!empty($password)) {
+	        $hashed_password = md5($password); // Generar el hash de la contraseña
+	        $data .= ", password = '$password' "; // Actualizar solo si se proporciona una nueva contraseña
+	    }
+	    if (!empty($_FILES['avatar']['tmp_name'])) {
+	        $avatar = strtotime(date('Y-m-d H:i')) . '_' . $_FILES['avatar']['name'];
+	        move_uploaded_file($_FILES['avatar']['tmp_name'], 'assets/uploads/' . $avatar);
+	        $data .= ", avatar = '$avatar' ";
+	        $_SESSION['login_avatar'] = $avatar;
+	    }
+	    $chk = $this->db->query("SELECT * FROM users WHERE username = '$username' AND id != '$id'")->num_rows;
+	    if ($chk > 0) {
+	        return 2; // Usuario ya existe
+	    }
+	    if (empty($id)) {
+	        $save = $this->db->query("INSERT INTO users SET $data");
+	    } else {
+	        $save = $this->db->query("UPDATE users SET $data WHERE id = $id");
+	    }
+	    return $save ? 1 : 0; // Devolver 1 si se guarda correctamente, 0 en caso contrario
 	}
+
 	function delete_user(){
 		extract($_POST);
 		$delete = $this->db->query("DELETE FROM users where id = ".$id);
@@ -188,56 +203,65 @@ Class Action {
 			return 1;
 				}
 	}
-	function save_course(){
-		extract($_POST);
-		$data = "";
-		foreach($_POST as $k => $v){
-			if(!in_array($k, array('id','fid','type','amount')) && !is_numeric($k)){
-				if(empty($data)){
-					$data .= " $k='$v' ";
-				}else{
-					$data .= ", $k='$v' ";
-				}
-			}
-		}
-		$check = $this->db->query("SELECT * FROM courses where course ='$course' and level ='$level' ".(!empty($id) ? " and id != {$id} " : ''))->num_rows;
-		if($check > 0){
-			return 2;
-			exit;
-		}
-		if(empty($id)){
-			$save = $this->db->query("INSERT INTO courses set $data");
-			if($save){
-				$id = $this->db->insert_id;
-				foreach($fid as $k =>$v){
-					$data = " course_id = '$id' ";
-					$data .= ", description = '{$type[$k]}' ";
-					$data .= ", amount = '{$amount[$k]}' ";
-					$save2[] = $this->db->query("INSERT INTO fees set $data");
-				}
-				if(isset($save2))
-						return 1;
-			}
-		}else{
-			$save = $this->db->query("UPDATE courses set $data where id = $id");
-			if($save){
-				$this->db->query("DELETE FROM fees where course_id = $id and id not in (".implode(',',$fid).") ");
-				foreach($fid as $k =>$v){
-					$data = " course_id = '$id' ";
-					$data .= ", description = '{$type[$k]}' ";
-					$data .= ", amount = '{$amount[$k]}' ";
-					if(empty($v)){
-						$save2[] = $this->db->query("INSERT INTO fees set $data");
-					}else{
-						$save2[] = $this->db->query("UPDATE fees set $data where id = $v");
-					}
-				}
-				if(isset($save2))
-						return 1;
-			}
-		}
+	function save_course() {
+	    extract($_POST);
+	    $data = "";
+	    foreach ($_POST as $k => $v) {
+	        if (!in_array($k, array('id', 'fid', 'type', 'amount')) && !is_numeric($k)) {
+	            if (empty($data)) {
+	                $data .= " $k='$v' ";
+	            } else {
+	                $data .= ", $k='$v' ";
+	            }
+	        }
+	    }
 
+	    // Validar que las variables necesarias estén definidas
+	    if (!isset($course) || !isset($level)) {
+	        return json_encode(['status' => 0, 'message' => 'Faltan datos requeridos para guardar el curso.']);
+	    }
+
+	    // Verificar si el curso y nivel ya existen
+	    $check = $this->db->query("SELECT * FROM courses WHERE course ='$course' AND level ='$level' " . (!empty($id) ? " AND id != {$id} " : ''));
+	    if ($check->num_rows > 0) {
+	        return json_encode(['status' => 2, 'message' => 'El curso y nivel ya existen.']);
+	    }
+
+	    if (empty($id)) {
+	        // Insertar nuevo curso
+	        $save = $this->db->query("INSERT INTO courses SET $data");
+	        if ($save) {
+	            $id = $this->db->insert_id;
+	            foreach ($fid as $k => $v) {
+	                $fee_data = " course_id = '$id' ";
+	                $fee_data .= ", description = '{$type[$k]}' ";
+	                $fee_data .= ", amount = '{$amount[$k]}' ";
+	                $this->db->query("INSERT INTO fees SET $fee_data");
+	            }
+	            return 1; // Curso guardado exitosamente
+	        }
+	    } else {
+	        // Actualizar curso existente
+	        $save = $this->db->query("UPDATE courses SET $data WHERE id = $id");
+	        if ($save) {
+	            $this->db->query("DELETE FROM fees WHERE course_id = $id AND id NOT IN (" . implode(',', $fid) . ")");
+	            foreach ($fid as $k => $v) {
+	                $fee_data = " course_id = '$id' ";
+	                $fee_data .= ", description = '{$type[$k]}' ";
+	                $fee_data .= ", amount = '{$amount[$k]}' ";
+	                if (empty($v)) {
+	                    $this->db->query("INSERT INTO fees SET $fee_data");
+	                } else {
+	                    $this->db->query("UPDATE fees SET $fee_data WHERE id = $v");
+	                }
+	            }
+	            return 1; // Curso actualizado exitosamente
+	        }
+	    }
+
+	    return json_encode(['status' => 0, 'message' => 'Error al guardar el curso.']);
 	}
+
 	function delete_course(){
 		extract($_POST);
 		$delete = $this->db->query("DELETE FROM courses where id = ".$id);

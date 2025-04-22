@@ -1,70 +1,73 @@
 <?php
-include('db_connect.php');
+include 'db_connect.php';
 session_start();
 if (isset($_GET['id'])) {
-	$user = $conn->query("SELECT * FROM users where id =" . $_GET['id']);
-	foreach ($user->fetch_array() as $k => $v) {
-		$meta[$k] = $v;
-	}
+    $qry = $conn->query("SELECT * FROM users WHERE id = {$_GET['id']}");
+    foreach ($qry->fetch_array() as $k => $v) {
+        $$k = $v;
+    }
 }
 ?>
 <div class="container-fluid">
-	<div id="msg"></div>
+    <div id="msg"></div>
 
-	<form action="" id="manage-user">
-		<input type="hidden" name="id" value="<?php echo isset($meta['id']) ? $meta['id'] : '' ?>">
-		<div class="form-group">
-			<label for="name">Name</label>
-			<input type="text" name="name" id="name" class="form-control" value="<?php echo isset($meta['name']) ? $meta['name'] : '' ?>" required>
-		</div>
-		<div class="form-group">
-			<label for="username">Username</label>
-			<input type="text" name="username" id="username" class="form-control" value="<?php echo isset($meta['username']) ? $meta['username'] : '' ?>" required autocomplete="off">
-		</div>
-		<div class="form-group">
-			<label for="password">Password</label>
-			<input type="password" name="password" id="password" class="form-control" value="" autocomplete="off">
-			<?php if (isset($meta['id'])) : ?>
-				<small><i>Leave this blank if you dont want to change the password.</i></small>
-			<?php endif; ?>
-		</div>
-		<?php if (isset($meta['type']) && $meta['type'] == 3) : ?>
-			<input type="hidden" name="type" value="3">
-		<?php else : ?>
-			<?php if (!isset($_GET['mtype'])) : ?>
-				<div class="form-group">
-					<label for="type">User Type</label>
-					<select name="type" id="type" class="custom-select">
-						<option value="2" <?php echo isset($meta['type']) && $meta['type'] == 2 ? 'selected' : '' ?>>Staff</option>
-						<option value="1" <?php echo isset($meta['type']) && $meta['type'] == 1 ? 'selected' : '' ?>>Admin</option>
-					</select>
-				</div>
-			<?php endif; ?>
-		<?php endif; ?>
-
-
-	</form>
+    <form id="manage-user" enctype="multipart/form-data">
+        <input type="hidden" name="id" value="<?php echo isset($id) ? $id : '' ?>">
+        <div class="form-group">
+            <label for="" class="control-label">Nombre</label>
+            <input type="text" class="form-control" name="name" value="<?php echo isset($name) ? $name : '' ?>" required>
+        </div>
+        <div class="form-group">
+            <label for="" class="control-label">Usuario</label>
+            <input type="text" class="form-control" name="username" value="<?php echo isset($username) ? $username : '' ?>" required autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="" class="control-label">Contraseña</label>
+            <input type="password" class="form-control" name="password" placeholder="(Dejar en blanco para no cambiar)" autocomplete="off">
+            <?php if (isset($password)) : ?>
+                <small><i>Dejar en blanco si no desea cambiar la contraseña.</i></small>
+            <?php endif; ?>
+        </div>
+        <div class="form-group">
+            <label for="" class="control-label">Foto de Perfil</label>
+            <input type="file" class="form-control" name="avatar" accept="image/*">
+            <?php if (isset($avatar) && !empty($avatar)) : ?>
+                <img src="assets/uploads/<?php echo $avatar ?>" alt="Avatar" class="img-thumbnail mt-2" width="100">
+            <?php endif; ?>
+        </div>
+    </form>
 </div>
 
 <script>
-	$('#manage-user').submit(function(e) {
-		e.preventDefault();
-		start_load()
-		$.ajax({
-			url: 'ajax.php?action=save_user',
-			method: 'POST',
-			data: $(this).serialize(),
-			success: function(resp) {
-				if (resp == 1) {
-					alert_toast("Data successfully saved", 'success')
-					setTimeout(function() {
-						location.reload()
-					}, 1500)
-				} else {
-					$('#msg').html('<div class="alert alert-danger">Username already exist</div>')
-					end_load()
-				}
-			}
-		})
-	})
+    $('#manage-user').submit(function(e) {
+        e.preventDefault();
+        start_load();
+        $('#msg').html(''); // Limpiar mensajes previos
+        $.ajax({
+            url: 'ajax.php?action=save_user',
+            method: 'POST',
+            data: new FormData($(this)[0]),
+            contentType: false,
+            processData: false,
+            success: function(resp) {
+                if (resp == 1) {
+                    alert_toast("Perfil actualizado con éxito.", 'success');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else if (resp == 2) {
+                    $('#msg').html('<div class="alert alert-danger">El nombre de usuario ya existe.</div>');
+                    end_load();
+                } else {
+                    $('#msg').html('<div class="alert alert-danger">Ocurrió un error al guardar los datos.</div>');
+                    end_load();
+                }
+            },
+            error: function(err) {
+                console.log(err);
+                $('#msg').html('<div class="alert alert-danger">Error en la solicitud. Verifique la consola para más detalles.</div>');
+                end_load();
+            }
+        });
+    });
 </script>

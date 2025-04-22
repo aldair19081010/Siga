@@ -1,9 +1,14 @@
 <?php
 include 'db_connect.php';
 if (isset($_GET['id'])) {
-    $qry = $conn->query("SELECT * FROM courses where id= " . $_GET['id']);
-    foreach ($qry->fetch_array() as $k => $val) {
-        $$k = $val;
+    $qry = $conn->query("SELECT * FROM courses WHERE id = " . $_GET['id']);
+    if ($qry->num_rows > 0) {
+        foreach ($qry->fetch_array() as $k => $val) {
+            $$k = $val;
+        }
+    } else {
+        echo "<script>alert('Curso no encontrado.'); location.replace('courses.php');</script>";
+        exit;
     }
 }
 ?>
@@ -21,39 +26,28 @@ if (isset($_GET['id'])) {
                 </div>
                 <div class="form-group">
                     <label for="level" class="control-label">Nivel</label>
-                        <select class="form-control" name="level" id="level" value="<?php echo isset($level) ? $level : '' ?>" required>
-                        <option value="" disabled selected>Seleccione un nivel</option>
-                        <option value="Inicial">Inicial</option>
-                        <option value="Primaria">Primaria</option>
-                        <option value="Secundaria">Secundaria</option>
-                        </select>                
+                    <select class="form-control" name="level" id="level" required>
+                        <option value="" disabled>Seleccione un nivel</option>
+                        <option value="Inicial" <?php echo (isset($level) && $level == 'Inicial') ? 'selected' : '' ?>>Inicial</option>
+                        <option value="Primaria" <?php echo (isset($level) && $level == 'Primaria') ? 'selected' : '' ?>>Primaria</option>
+                        <option value="Secundaria" <?php echo (isset($level) && $level == 'Secundaria') ? 'selected' : '' ?>>Secundaria</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="" class="control-label">Descripción</label>
-                    <textarea name="description" id="" cols="30" rows="4" class="form-control" required=""><?php echo isset($description) ? $description : '' ?></textarea>
+                    <textarea name="description" id="" cols="30" rows="4" class="form-control" required><?php echo isset($description) ? $description : '' ?></textarea>
                 </div>
             </div>
             <div class="col-lg-6">
                 <h5><b>Información de los Pagos</b></h5>
                 <hr>
-                <div class="">
-                   <!--  <div class="form-group mb-2">
-                       <label for="ft" class="control-label">Tipo de Pago</label> 
-                        <select id="ft" name="tipo_pago" class="form-control" required>
-                            <option value="" disabled selected>Seleccione un tipo de pago</option>
-                            <option value="Yape">Yape</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia">Transferencia</option>
-                        </select>
-                    </div>-->
-                    <div class="form-group">
-                        <label for="" class="control-label">Monto</label>
-                        <input type="number" step="any" min="0" id="amount" class="form-control text-right">
-                    </div>
-                    <div class="form-group pt-1">
-                        <label for="" class="control-label">&nbsp;</label>
-                        <button class="btn btn-primary btn-sm" type="button" id="add_fee">Agregar a la Lista</button>
-                    </div>
+                <div class="form-group">
+                    <label for="" class="control-label">Monto</label>
+                    <input type="number" step="any" min="0" id="amount" class="form-control text-right">
+                </div>
+                <div class="form-group pt-1">
+                    <label for="" class="control-label">&nbsp;</label>
+                    <button class="btn btn-primary btn-sm" type="button" id="add_fee">Agregar a la Lista</button>
                 </div>
                 <hr>
                 <table class="table table-condensed" id="fee-list">
@@ -67,7 +61,7 @@ if (isset($_GET['id'])) {
                     <tbody>
                         <?php
                         if (isset($id)) :
-                            $fees = $conn->query("SELECT * FROM fees where course_id = $id");
+                            $fees = $conn->query("SELECT * FROM fees WHERE course_id = $id");
                             $total = 0;
                             while ($row = $fees->fetch_assoc()) :
                                 $total += $row['amount'];
@@ -81,16 +75,14 @@ if (isset($_GET['id'])) {
                                     </td>
                                     <td>
                                         <input type="hidden" name="amount[]" value="<?php echo $row['amount'] ?>">
-                                        <p class="text-right"><small><b class="famount"><?php echo number_format($row['amount']) ?></b></small></p>
+                                        <p class="text-right"><small><b class="famount"><?php echo number_format($row['amount'], 2) ?></b></small></p>
                                     </td>
                                 </tr>
                         <?php
                             endwhile;
                         endif;
                         ?>
-
                     </tbody>
-
                     <tfoot>
                         <tr>
                             <th colspan="2" class="text-center">Total</th>
@@ -124,48 +116,31 @@ if (isset($_GET['id'])) {
 
 <script>
     $('#manage-course').on('reset', function() {
-        $('#msg').html('')
-        $('input:hidden').val('')
-    })
+        $('#msg').html('');
+        $('input:hidden').val('');
+    });
+
     $('#add_fee').click(function() {
-        var ft = $('#ft').val()
-        var amount = $('#amount').val()
-        if (amount == '' || ft == '') {
-            alert_toast("Complete primero el campo Tipo de tarifa y monto.", 'warning')
+        var amount = $('#amount').val();
+        if (amount == '') {
+            alert_toast("Complete el campo de monto.", 'warning');
             return false;
         }
-        var tr = $('#fee_clone tr').clone()
-        tr.find('[name="type[]"]').val(ft)
-        tr.find('.ftype').text(ft)
-        tr.find('[name="amount[]"]').val(amount)
-        tr.find('.famount').text(parseFloat(amount).toLocaleString('en-US'))
-        $('#fee-list tbody').append(tr)
-        $('#ft').val('').focus()
-        $('#amount').val('')
-        calculate_total()
-    })
+        var tr = $('#fee_clone tr').clone();
+        tr.find('[name="amount[]"]').val(amount);
+        tr.find('.famount').text(parseFloat(amount).toLocaleString('en-US'));
+        $('#fee-list tbody').append(tr);
+        $('#amount').val('');
+        calculate_total();
+    });
 
-    function calculate_total() {
-        var total = 0;
-        $('#fee-list tbody').find('[name="amount[]"]').each(function() {
-            total += parseFloat($(this).val())
-        })
-        $('#fee-list tfoot').find('.tamount').text(parseFloat(total).toLocaleString('en-US'))
-        $('#fee-list tfoot').find('[name="total_amount"]').val(total)
-
-    }
-
-    function rem_list(_this) {
-        _this.closest('tr').remove()
-        calculate_total()
-    }
     $('#manage-course').submit(function(e) {
-        e.preventDefault()
-        start_load()
-        $('#msg').html('')
+        e.preventDefault();
+        start_load();
+        $('#msg').html('');
         if ($('#fee-list tbody').find('[name="fid[]"]').length <= 0) {
-            alert_toast("Inserte al menos 1 fila en la tabla de tarifas", 'danger')
-            end_load()
+            alert_toast("Inserte al menos 1 fila en la tabla de tarifas", 'danger');
+            end_load();
             return false;
         }
         $.ajax({
@@ -175,23 +150,48 @@ if (isset($_GET['id'])) {
             contentType: false,
             processData: false,
             method: 'POST',
-            type: 'POST',
             success: function(resp) {
-                if (resp == 1) {
-                    alert_toast("Datos guardados con éxito.", 'success')
-                    setTimeout(function() {
-                        location.reload()
-                    }, 1000)
-                } else if (resp == 2) {
-                    $('#msg').html('<div class="alert alert-danger mx-2">El nombre del curso y el nivel ya existen.</div>')
-                    end_load()
+                try {
+                    if (typeof resp === 'string') {
+                        resp = JSON.parse(resp); // Asegurarse de que la respuesta sea JSON válida
+                    }
+                    if (resp.status == 1) {
+                        alert_toast(resp.message, 'success'); // Mostrar mensaje de éxito
+                        setTimeout(function() {
+                            location.reload(); // Recargar la página después de guardar
+                        }, 500);
+                    } else if (resp.status == 2) {
+                        $('#msg').html('<div class="alert alert-danger mx-2">' + resp.message + '</div>');
+                        end_load();
+                    } else {
+                        alert_toast(resp.message, 'danger');
+                        end_load();
+                    }
+                } catch (err) {
+                    console.error("Error al procesar la respuesta del servidor:", err);
+                    alert_toast("Error inesperado. Intente nuevamente más tarde.", 'danger');
+                    end_load();
                 }
+            },
+            error: function(err) {
+                console.error("Error en la solicitud AJAX:", err);
+                alert_toast("Error en el servidor. Intente nuevamente más tarde.", 'danger');
+                end_load();
             }
-        })
-    })
+        });
+    });
 
-    $('.select2').select2({
-        placeholder: "Seleccione aquí",
-        width: '100%'
-    })
+    function calculate_total() {
+        var total = 0;
+        $('#fee-list tbody').find('[name="amount[]"]').each(function() {
+            total += parseFloat($(this).val());
+        });
+        $('#fee-list tfoot').find('.tamount').text(parseFloat(total).toLocaleString('en-US'));
+        $('#fee-list tfoot').find('[name="total_amount"]').val(total);
+    }
+
+    function rem_list(_this) {
+        _this.closest('tr').remove();
+        calculate_total();
+    }
 </script>

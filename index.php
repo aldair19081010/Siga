@@ -1,7 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<?php session_start(); ?>
+<?php
+session_start();
+if (!isset($_SESSION['login_id'])) {
+	header('location:login.php'); // Redirigir al login si no hay sesión activa
+	exit;
+}
+?>
 
 <head>
   <meta charset="utf-8">
@@ -10,8 +16,6 @@
 
 
   <?php
-  if (!isset($_SESSION['login_id']))
-    header('location:login.php');
   include('./header.php');
 
   ?>
@@ -151,32 +155,32 @@
 
   }
   window.uni_modal = function($title = '', $url = '', $size = "") {
-    start_load()
+    start_load();
     $.ajax({
-      url: $url,
-      error: err => {
-        console.log()
-        alert("Ocurrió un error")
-      },
-      success: function(resp) {
-        if (resp) {
-          $('#uni_modal .modal-title').html($title)
-          $('#uni_modal .modal-body').html(resp)
-          if ($size != '') {
-            $('#uni_modal .modal-dialog').addClass($size)
-          } else {
-            $('#uni_modal .modal-dialog').removeAttr("class").addClass("modal-dialog modal-md")
-          }
-          $('#uni_modal').modal({
-            show: true,
-            backdrop: 'static',
-            keyboard: false,
-            focus: true
-          })
-          end_load()
+        url: $url,
+        error: err => {
+            console.log(err);
+            alert("Ocurrió un error");
+        },
+        success: function(resp) {
+            if (resp) {
+                $('#uni_modal .modal-title').html($title);
+                $('#uni_modal .modal-body').html(resp);
+                if ($size != '') {
+                    $('#uni_modal .modal-dialog').addClass($size);
+                } else {
+                    $('#uni_modal .modal-dialog').removeAttr("class").addClass("modal-dialog modal-md");
+                }
+                $('#uni_modal').modal({
+                    show: true,
+                    backdrop: 'static',
+                    keyboard: false,
+                    focus: true
+                }).removeAttr('aria-hidden'); // Eliminar aria-hidden al abrir el modal
+                end_load();
+            }
         }
-      }
-    })
+    });
   }
   window._conf = function($msg = '', $func = '', $params = []) {
     $('#confirm_modal #confirm').attr('onclick', $func + "(" + $params.join(',') + ")")

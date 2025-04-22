@@ -4,10 +4,15 @@ $fees = $conn->query("SELECT ef.*,s.name as sname,s.id_no,concat(c.course,' - ',
 foreach ($fees->fetch_array() as $k => $v) {
 	$$k = $v;
 }
-$payments = $conn->query("SELECT * FROM payments where ef_id = $id ");
+$payments = $conn->query("
+    SELECT p.*, pm.name as payment_method 
+    FROM payments p 
+    LEFT JOIN payment_methods pm ON p.payment_method_id = pm.id 
+    WHERE p.ef_id = $id
+");
 $pay_arr = array();
 while ($row = $payments->fetch_array()) {
-	$pay_arr[$row['id']] = $row;
+    $pay_arr[$row['id']] = $row;
 }
 ?>
 
@@ -56,6 +61,7 @@ while ($row = $payments->fetch_array()) {
 			<div class="w-50">
 				<p>Fecha de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]) ? date("M d,Y", strtotime($pay_arr[$_GET['pid']]['date_created'])) : '' ?></b></p>
 				<p>Monto de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]) ? number_format($pay_arr[$_GET['pid']]['amount'], 2) : '' ?></b></p>
+				 <p>Método de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]['payment_method']) && $pay_arr[$_GET['pid']]['payment_method'] ? $pay_arr[$_GET['pid']]['payment_method'] : 'No especificado' ?></b></p>
 				<p>Observación: <b><?php echo isset($pay_arr[$_GET['pid']]) ? $pay_arr[$_GET['pid']]['remarks'] : '' ?></b></p>
 			</div>
 		<?php endif; ?>
@@ -73,21 +79,26 @@ while ($row = $payments->fetch_array()) {
 						<td width="50%" class='text-right'>Monto</td>
 					</tr>
 					<?php
-					$cfees = $conn->query("SELECT * FROM fees where course_id = $course_id");
+					$cfees = $conn->query("
+					    SELECT f.amount, c.course 
+					    FROM fees f 
+					    INNER JOIN courses c ON f.course_id = c.id 
+					    WHERE f.course_id = $course_id
+					");
 					$ftotal = 0;
 					while ($row = $cfees->fetch_assoc()) {
 						$ftotal += $row['amount'];
 					?>
 						<tr>
-							<td><b><?php echo $row['description'] ?></b></td>
-							<td class='text-right'><b><?php echo number_format($row['amount']) ?></b></td>
+							<td><b><?php echo isset($row['course']) ? $row['course'] : 'Sin información' ?></b></td>
+							<td class='text-right'><b><?php echo number_format($row['amount'], 2) ?></b></td>
 						</tr>
 					<?php
 					}
 					?>
 					<tr>
 						<th>Total</th>
-						<th class='text-right'><b><?php echo number_format($ftotal) ?></b></th>
+						<th class='text-right'><b><?php echo number_format($ftotal, 2) ?></b></th>
 					</tr>
 				</table>
 			</td>

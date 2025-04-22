@@ -12,10 +12,6 @@ if (isset($_GET['id'])) {
 		<div id="msg"></div>
 		<input type="hidden" name="id" value="<?php echo isset($id) ? $id : '' ?>">
 		<div class="form-group">
-			<label for="" class="control-label">Nº Boleta</label>
-			<input type="text" class="form-control" name="ef_no" value="<?php echo isset($ef_no) ? $ef_no : '' ?>" required>
-		</div>
-		<div class="form-group">
 			<label for="" class="control-label">Estudiante</label>
 			<select name="student_id" id="student_id" class="custom-select input-sm select2">
 				<option value=""></option>

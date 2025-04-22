@@ -51,7 +51,11 @@
         <div class="col-lg-12">
             <div class="card">
                 <div class="card-body">
-                    <?php echo "Hola hola " . $_SESSION['login_name'] . "!"  ?>
+                    <?php 
+                    if (!isset($_SERVER['HTTP_REFERER']) || strpos($_SERVER['HTTP_REFERER'], 'login.php') === false) {
+                        echo "Hola hola " . $_SESSION['login_name'] . "!";
+                    }
+                    ?>
                     <hr>
 
 
@@ -70,9 +74,21 @@
                         <tbody>
                             <?php
                             $i = 1;
-                            $payments = $conn->query("SELECT p.*,s.name as sname, ef.ef_no,s.id_no FROM payments p inner join student_ef_list ef on ef.id = p.ef_id inner join student s on s.id = ef.student_id order by unix_timestamp(p.date_created) desc ");
-                            if ($payments->num_rows > 0) :
-                                while ($row = $payments->fetch_assoc()) :
+                            $qry = $conn->query("
+                                SELECT 
+                                    p.*, 
+                                    s.name AS student_name, 
+                                    s.id_no AS student_id, 
+                                    c.course AS course_name, 
+                                    c.level AS course_level 
+                                FROM payments p
+                                INNER JOIN student_ef_list ef ON ef.id = p.ef_id
+                                INNER JOIN student s ON s.id = ef.student_id
+                                INNER JOIN courses c ON c.id = ef.course_id
+                                ORDER BY p.date_created DESC
+                            ");
+                            if ($qry->num_rows > 0) :
+                                while ($row = $qry->fetch_assoc()) :
                                     $paid = $conn->query("SELECT sum(amount) as paid FROM payments where ef_id=" . $row['id']);
                                     $paid = $paid->num_rows > 0 ? $paid->fetch_array()['paid'] : '';
                             ?>
@@ -82,13 +98,13 @@
                                             <p><?php echo date("M d,Y H:i A", strtotime($row['date_created'])) ?></p>
                                         </td>
                                         <td>
-                                            <p><?php echo $row['id_no'] ?></p>
+                                            <p><?php echo $row['student_id'] ?></p>
                                         </td>
                                         <td>
-                                            <p><?php echo $row['ef_no'] ?></p>
+                                            <p><?php echo $row['course_name'] ?></p>
                                         </td>
                                         <td>
-                                            <p><?php echo ucwords($row['sname']) ?></p>
+                                            <p><?php echo ucwords($row['student_name']) ?></p>
                                         </td>
                                         <td class="text-right">
                                             <p><?php echo number_format($row['amount'], 2) ?></p>

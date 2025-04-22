@@ -49,12 +49,11 @@
 							</thead>
 							<tbody>
 								<?php
-								$i = 1;
 								$course = $conn->query("SELECT * FROM courses  order by course asc ");
 								while ($row = $course->fetch_assoc()) :
 								?>
 									<tr>
-										<td class="text-center"><?php echo $i++ ?></td>
+										<td class="text-center"><?php echo $row['id'] ?></td> <!-- Mostrar el ID del concepto -->
 										<td>
 											<?php echo $row['course'] . " - " . $row['level'] ?>
 										</td>
@@ -98,38 +97,52 @@
 
 <script>
 	$(document).ready(function() {
-		$('table').dataTable()
-	})
-	$('#new_course').click(function() {
-		uni_modal("Entrada de nuevos cursos y tarifas", "manage_course.php", 'large')
+		$('table').dataTable();
+	});
 
-	})
+	$('#new_course').click(function() {
+		uni_modal("Entrada de nuevos cursos y tarifas", "manage_course.php", 'large');
+	});
 
 	$('.edit_course').click(function() {
-		uni_modal("Administrar la entrada de cursos y tarifas", "manage_course.php?id=" + $(this).attr('data-id'), 'large')
+		uni_modal("Administrar la entrada de cursos y tarifas", "manage_course.php?id=" + $(this).attr('data-id'), 'large');
+	});
 
-	})
 	$('.delete_course').click(function() {
-		_conf("¿Deseas eliminar este curso?", "delete_course", [$(this).attr('data-id')])
-	})
+		_conf("¿Deseas eliminar este curso?", "delete_course", [$(this).attr('data-id')]);
+	});
 
 	function delete_course($id) {
-		start_load()
+		start_load();
 		$.ajax({
 			url: 'ajax.php?action=delete_course',
 			method: 'POST',
-			data: {
-				id: $id
-			},
+			data: { id: $id },
 			success: function(resp) {
-				if (resp == 1) {
-					alert_toast("Datos eliminados con éxito", 'success')
-					setTimeout(function() {
-						location.reload()
-					}, 1500)
-
+				try {
+					if (typeof resp === 'string') {
+						resp = JSON.parse(resp); // Asegurarse de que la respuesta sea JSON válida
+					}
+					if (resp.status == 1) {
+						alert_toast("Curso eliminado exitosamente.", 'success');
+						setTimeout(function() {
+							location.reload(); // Recargar la página después de eliminar
+						}, 500);
+					} else {
+						alert_toast(resp.message, 'danger');
+						end_load();
+					}
+				} catch (err) {
+					console.error("Error al procesar la respuesta del servidor:", err);
+					alert_toast("Error inesperado. Intente nuevamente más tarde.", 'danger');
+					end_load();
 				}
+			},
+			error: function(err) {
+				console.error("Error en la solicitud AJAX:", err);
+				alert_toast("Error en el servidor. Intente nuevamente más tarde.", 'danger');
+				end_load();
 			}
-		})
+		});
 	}
 </script>

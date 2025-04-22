@@ -60,13 +60,14 @@ if (isset($_GET['id'])) {
 
 <script>
     $('#manage-student').on('reset', function() {
-        $('#msg').html('')
-        $('input:hidden').val('')
-    })
+        $('#msg').html('');
+        $('input:hidden').val('');
+    });
+
     $('#manage-student').submit(function(e) {
-        e.preventDefault()
-        start_load()
-        $('#msg').html('')
+        e.preventDefault();
+        start_load();
+        $('#msg').html('');
         $.ajax({
             url: 'ajax.php?action=save_student',
             data: new FormData($(this)[0]),
@@ -74,23 +75,39 @@ if (isset($_GET['id'])) {
             contentType: false,
             processData: false,
             method: 'POST',
-            type: 'POST',
             success: function(resp) {
-                if (resp == 1) {
-                    alert_toast("Datos guardados exitósamente", 'success')
-                    setTimeout(function() {
-                        location.reload()
-                    }, 1000)
-                } else if (resp == 2) {
-                    $('#msg').html('<div class="alert alert-danger mx-2">ID existe actualmente </div>')
-                    end_load()
+                try {
+                    if (typeof resp === 'string') {
+                        resp = JSON.parse(resp); // Asegurarse de que la respuesta sea JSON válida
+                    }
+                    if (resp.status == 1) {
+                        alert_toast(resp.message, 'success'); // Mostrar mensaje de éxito
+                        setTimeout(function() {
+                            location.reload(); // Recargar la página después de guardar
+                        }, 500);
+                    } else if (resp.status == 2) {
+                        $('#msg').html('<div class="alert alert-danger mx-2">' + resp.message + '</div>');
+                        end_load();
+                    } else {
+                        alert_toast(resp.message, 'danger');
+                        end_load();
+                    }
+                } catch (err) {
+                    console.error("Error al procesar la respuesta del servidor:", err);
+                    alert_toast("Error inesperado. Intente nuevamente más tarde.", 'danger');
+                    end_load();
                 }
+            },
+            error: function(err) {
+                console.error("Error en la solicitud AJAX:", err);
+                alert_toast("Error en el servidor. Intente nuevamente más tarde.", 'danger');
+                end_load();
             }
-        })
-    })
+        });
+    });
 
     $('.select2').select2({
-        placeholder: "Porfavor selecciona aquí",
+        placeholder: "Por favor selecciona aquí",
         width: '100%'
-    })
+    });
 </script>
