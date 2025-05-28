@@ -1,16 +1,34 @@
 <?php
 include 'db_connect.php';
-$fees = $conn->query("SELECT ef.*,s.name as sname,s.id_no,concat(c.course,' - ',c.level) as `class` FROM student_ef_list ef inner join student s on s.id = ef.student_id inner join courses c on c.id = ef.course_id  where ef.id = {$_GET['ef_id']}");
+$fees = $conn->query("SELECT ef.*,s.name as sname,s.id_no,s.school_id,concat(c.course,' - ',c.level) as `class` FROM student_ef_list ef inner join student s on s.id = ef.student_id inner join courses c on c.id = ef.course_id  where ef.id = {$_GET['ef_id']}");
 foreach ($fees->fetch_array() as $k => $v) {
 	$$k = $v;
 }
-$payments = $conn->query("SELECT * FROM payments where ef_id = $id ");
+
+// Obtener información del colegio
+$school_query = $conn->query("SELECT * FROM schools WHERE id = $school_id");
+$school_data = $school_query->fetch_assoc();
+$school_name = $school_data['name'] ?? 'Colegio';
+$school_address = $school_data['address'] ?? '';
+$school_contact = $school_data['contact'] ?? '';
+
+$payments = $conn->query("
+    SELECT p.*, pm.name as payment_method 
+    FROM payments p 
+    LEFT JOIN payment_methods pm ON p.payment_method_id = pm.id 
+    WHERE p.ef_id = $id
+");
 $pay_arr = array();
 while ($row = $payments->fetch_array()) {
-	$pay_arr[$row['id']] = $row;
+    $pay_arr[$row['id']] = $row;
+}
+
+// Obtener el número de boleta si corresponde a un pago específico
+$receipt_no = '';
+if (isset($_GET['pid']) && $_GET['pid'] > 0 && isset($pay_arr[$_GET['pid']]['receipt_no'])) {
+    $receipt_no = $pay_arr[$_GET['pid']]['receipt_no'];
 }
 ?>
-
 <style>
 	.flex {
 		display: inline-flex;
@@ -44,18 +62,38 @@ while ($row = $payments->fetch_array()) {
 	}
 </style>
 <div class="container-fluid">
-	<p class="text-center"><b><?php echo $_GET['pid'] == 0 ? "Factura ConfiguroWeb" : 'Recibo de Pago' ?></b></p>
+	<div class="text-center mb-3">
+		<h4><b><?php echo htmlspecialchars($school_name); ?></b></h4>
+		<?php if (!empty($school_address)): ?>
+			<p><?php echo htmlspecialchars($school_address); ?></p>
+		<?php endif; ?>
+		<?php if (!empty($school_contact)): ?>
+			<p>Tel: <?php echo htmlspecialchars($school_contact); ?></p>
+		<?php endif; ?>
+		<hr>
+		<h5><b><?php echo $_GET['pid'] == 0 ? "Factura de Pago" : 'Recibo de Pago' ?></b></h5>
+		<?php if ($receipt_no): ?>
+			<p><b>N° Boleta: <?php echo htmlspecialchars($receipt_no); ?></b></p>
+		<?php endif; ?>
+	</div>
 	<hr>
 	<div class="flex">
 		<div class="w-50">
-			<p>No de Curso: <b><?php echo $ef_no ?></b></p>
+			<p>Concepto de pago: <b>
+				<?php
+					// Mostrar el concepto de pago correctamente
+					// Si tienes un campo ef_no, úsalo, si no, muestra el ID o el concepto
+					echo isset($ef_no) && $ef_no ? htmlspecialchars($ef_no) : htmlspecialchars($class);
+				?>
+			</b></p>
 			<p>Estudiante: <b><?php echo ucwords($sname) ?></b></p>
-			<p>Curso/Nivel: <b><?php echo $class ?></b></p>
+			
 		</div>
 		<?php if ($_GET['pid'] > 0) : ?>
 			<div class="w-50">
-				<p>Fecha de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]) ? date("M d,Y", strtotime($pay_arr[$_GET['pid']]['date_created'])) : '' ?></b></p>
+				<p>Fecha de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]) ? date("M d - Y", strtotime($pay_arr[$_GET['pid']]['date_created'])) : '' ?></b></p>
 				<p>Monto de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]) ? number_format($pay_arr[$_GET['pid']]['amount'], 2) : '' ?></b></p>
+				 <p>Método de Pago: <b><?php echo isset($pay_arr[$_GET['pid']]['payment_method']) && $pay_arr[$_GET['pid']]['payment_method'] ? $pay_arr[$_GET['pid']]['payment_method'] : 'No especificado' ?></b></p>
 				<p>Observación: <b><?php echo isset($pay_arr[$_GET['pid']]) ? $pay_arr[$_GET['pid']]['remarks'] : '' ?></b></p>
 			</div>
 		<?php endif; ?>
@@ -73,21 +111,16 @@ while ($row = $payments->fetch_array()) {
 						<td width="50%" class='text-right'>Monto</td>
 					</tr>
 					<?php
-					$cfees = $conn->query("SELECT * FROM fees where course_id = $course_id");
-					$ftotal = 0;
-					while ($row = $cfees->fetch_assoc()) {
-						$ftotal += $row['amount'];
-					?>
-						<tr>
-							<td><b><?php echo $row['description'] ?></b></td>
-							<td class='text-right'><b><?php echo number_format($row['amount']) ?></b></td>
-						</tr>
-					<?php
-					}
+					// Mostrar el monto total del concepto de pago
+					$ftotal = $total_fee; // Usar el valor directo de student_ef_list
 					?>
 					<tr>
+						<td><b><?php echo isset($class) ? $class : 'Sin información' ?></b></td>
+						<td class='text-right'><b><?php echo number_format($ftotal, 2) ?></b></td>
+					</tr>
+					<tr>
 						<th>Total</th>
-						<th class='text-right'><b><?php echo number_format($ftotal) ?></b></th>
+						<th class='text-right'><b><?php echo number_format($ftotal, 2) ?></b></th>
 					</tr>
 				</table>
 			</td>
@@ -106,7 +139,7 @@ while ($row = $payments->fetch_array()) {
 					?>
 							<tr>
 								<td><b><?php echo date("Y-m-d", strtotime($row['date_created'])) ?></b></td>
-								<td class='text-right'><b><?php echo number_format($row['amount']) ?></b></td>
+								<td class='text-right'><b><?php echo number_format($row['amount'], 2) ?></b></td>
 							</tr>
 					<?php
 						}
@@ -114,21 +147,21 @@ while ($row = $payments->fetch_array()) {
 					?>
 					<tr>
 						<th>Total</th>
-						<th class='text-right'><b><?php echo number_format($ptotal) ?></b></th>
+						<th class='text-right'><b><?php echo number_format($ptotal, 2) ?></b></th>
 					</tr>
 				</table>
 				<table width="100%">
 					<tr>
 						<td>Tarifa total a pagar</td>
-						<td class='text-right'><b><?php echo number_format($ftotal) ?></b></td>
+						<td class='text-right'><b><?php echo number_format($ftotal, 2) ?></b></td>
 					</tr>
 					<tr>
 						<td>Total Pagado</td>
-						<td class='text-right'><b><?php echo number_format($ptotal) ?></b></td>
+						<td class='text-right'><b><?php echo number_format($ptotal, 2) ?></b></td>
 					</tr>
 					<tr>
-						<td>Balance</td>
-						<td class='text-right'><b><?php echo number_format($ftotal - $ptotal) ?></b></td>
+						<td>Saldo Pendiente</td>
+						<td class='text-right'><b><?php echo number_format(max(0, $ftotal - $ptotal), 2) ?></b></td>
 					</tr>
 				</table>
 			</td>

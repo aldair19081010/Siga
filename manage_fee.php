@@ -12,10 +12,6 @@ if (isset($_GET['id'])) {
 		<div id="msg"></div>
 		<input type="hidden" name="id" value="<?php echo isset($id) ? $id : '' ?>">
 		<div class="form-group">
-			<label for="" class="control-label">Nº Boleta</label>
-			<input type="text" class="form-control" name="ef_no" value="<?php echo isset($ef_no) ? $ef_no : '' ?>" required>
-		</div>
-		<div class="form-group">
 			<label for="" class="control-label">Estudiante</label>
 			<select name="student_id" id="student_id" class="custom-select input-sm select2">
 				<option value=""></option>
@@ -66,20 +62,25 @@ if (isset($_GET['id'])) {
 			url: 'ajax.php?action=save_fees',
 			method: 'POST',
 			data: $(this).serialize(),
+			dataType: 'json',
 			error: err => {
 				console.log(err)
 				end_load()
 			},
 			success: function(resp) {
-				if (resp == 1) {
-					location.reload();
-					alert_toast("Datos guardados exitósamente", 'success')
+				if (resp.status == 1) {
+					alert_toast(resp.message, 'success');
 					setTimeout(function() {
-						location.reload()
-					}, 1000)
-				} else if (resp == 2) {
+						$('#uni_modal').modal('hide');
+						if (window.reload_table) window.reload_table();
+						else location.reload();
+					}, 500);
+				} else if (resp.status == 2) {
 					$('#msg').html('<div class="alert alert-danger">Número de Curso Existe Actualmente</div>')
 					end_load()
+				} else {
+					alert_toast(resp.message, 'danger');
+					end_load();
 				}
 			}
 		})
